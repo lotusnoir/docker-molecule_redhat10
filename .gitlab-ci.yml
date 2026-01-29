@@ -12,6 +12,8 @@ variables:
   DOCKERHUB_TAG: ${DOCKERHUB_USER}/ansible_molecule_test_images:${OS_TYPE}
   DOCKERHUB_USER: lotusnoir
   GITHUB_USER: lotusnoir
+  DOCKER_HOST: unix:///var/run/docker.sock
+  DOCKER_TLS_CERTDIR: ""  # Disable TLS for simplicity
 
 
 ##################################################
@@ -43,9 +45,6 @@ test_build:
   needs: ["yamllint", "hadolint"]
   tags:
     - avx2
-  variables:
-    DOCKER_HOST: unix:///var/run/docker.sock
-    DOCKER_TLS_CERTDIR: ""  # Disable TLS for simplicity
   script:
     - until docker info 2>/dev/null; do echo "Waiting for Docker..."; sleep 2; done
     - docker build -t test-build-${OS_TYPE} .
@@ -78,8 +77,6 @@ push_img_on_dockerhub:
   needs: ["test_build"]
   tags:
     - avx2
-  services:
-    - docker:dind
   before_script:
     - docker info 2>/dev/null; do echo "Waiting for Docker..."; sleep 2; done
     - docker login -u "${DOCKERHUB_USER}" -p "${DOCKERHUB_TOKEN}"
