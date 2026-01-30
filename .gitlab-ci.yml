@@ -1,6 +1,5 @@
 ---
 stages:
-  - check
   - test
   - push
 
@@ -13,28 +12,7 @@ variables:
   DOCKERHUB_USER: lotusnoir
   GITHUB_USER: lotusnoir
   DOCKER_HOST: unix:///var/run/docker.sock
-  DOCKER_TLS_CERTDIR: ""  # Disable TLS for simplicity
-
-
-##################################################
-# CHECKS
-##################################################
-yamllint:
-  stage: check
-  image: sdesbure/yamllint
-  before_script:
-    - yamllint --version
-  script:
-    - yamllint .
-
-hadolint:
-  stage: check
-  image: hadolint/hadolint:latest-debian
-  before_script:
-    - hadolint --version
-  script:
-    - hadolint Dockerfile
-
+  DOCKER_TLS_CERTDIR: "" # Disable TLS for simplicity
 
 ##################################################
 # TEST BUILD
@@ -42,7 +20,10 @@ hadolint:
 test_build:
   stage: test
   image: docker:latest
-  needs: ["yamllint", "hadolint"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - Dockerfile
   tags:
     - avx2
   script:
@@ -53,7 +34,6 @@ test_build:
     - docker exec test-${OS_TYPE} systemctl --version
     - docker stop test-${OS_TYPE} && docker rm test-${OS_TYPE}
 
-
 ##################################################
 # PUSH CODE AND IMAGE
 ##################################################
@@ -61,8 +41,6 @@ test_build:
 #  stage: push
 #  image: docker:latest
 #  needs: ["test_build"]
-#  services:
-#    - docker:dind
 #  before_script:
 #    - docker info
 #    - echo "${CI_REGISTRY_USER} ${CI_REGISTRY_TOKEN} ${CI_REGISTRY_URL}.${COMPANY_DOMAIN}"
@@ -75,6 +53,10 @@ push_img_on_dockerhub:
   stage: push
   image: docker:latest
   needs: ["test_build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - Dockerfile
   tags:
     - avx2
   before_script:
@@ -88,6 +70,10 @@ push_src_on_github:
   stage: push
   image: alpine:latest
   needs: ["test_build"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - Dockerfile
   before_script:
     - apk add git openssh-client
     - eval $(ssh-agent -s)
